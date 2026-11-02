@@ -42,7 +42,7 @@ Dependabot proposes updates once a week, for the npm packages, GitHub Actions an
 
 | Package | Advisory | Why it's accepted |
 |---|---|---|
-| `eslint` 9.39.5 | This version is no longer supported | Development only. `eslint-config-next` 16.4.3 accepts ESLint 9 (`>=9`). Moving to ESLint 10 is a new major and is left for a release of its own. |
+| `eslint` 9.39.5 | This version is no longer supported | Development only. `eslint-config-next` 16.4.3's own peer is `>=9` and its parser knows ESLint 10, but `eslint-plugin-react` 7.37.5, `eslint-plugin-jsx-a11y` and `eslint-plugin-import` only peer ESLint 9. ESLint 10 waits until those peers allow it. |
 | `minimatch` 3.1.5 and 10.2.6 | Glob denial of service ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)) | Development only, from ESLint and typescript-eslint. The fix is minimatch 11, which those packages don't allow yet. |
 
 `package.json` `resolutions` forces patched releases the parents already allow: `fast-uri` 3.1.9 (Prisma's CLI, through ajv; [GHSA-w74x-v6f9-j3xg](https://github.com/advisories/GHSA-w74x-v6f9-j3xg) and the three related advisories), `source-map-js` 1.2.2 (the CSS build; [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)) and `undici` 8.12.3 (node-gyp's copy; the 8.12.2 advisories). `@prisma/config` depends on `deepmerge-ts` 8.0.2, so the 7.1.5 advisory no longer applies. `mysql2`, which Prisma's CLI ships but Dossier never loads (it uses PostgreSQL), stays pinned to a patched release there too. Remove a pin once the parent updates it.
