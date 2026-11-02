@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { EnvError, parseEnv } from "./env";
 
@@ -22,6 +22,55 @@ function problems(source: Record<string, string | undefined>): string[] {
   }
   throw new Error("Expected parseEnv to throw");
 }
+
+describe("env during next build", () => {
+  const saved = {
+    DOSSIER_PASSWORD: process.env.DOSSIER_PASSWORD,
+    DOSSIER_SECRET: process.env.DOSSIER_SECRET,
+    DATABASE_URL: process.env.DATABASE_URL,
+    NEXT_PHASE: process.env.NEXT_PHASE,
+  };
+
+  async function loadFresh() {
+    vi.resetModules();
+    return import("./env");
+  }
+
+  function restore() {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    vi.resetModules();
+  }
+
+  it("bails out as a dynamic page when the secrets are unset", async () => {
+    delete process.env.DOSSIER_PASSWORD;
+    delete process.env.DOSSIER_SECRET;
+    delete process.env.DATABASE_URL;
+    process.env.NEXT_PHASE = "phase-production-build";
+    try {
+      const { env } = await loadFresh();
+      expect(() => env.DATABASE_URL).toThrow(expect.objectContaining({ digest: "DYNAMIC_SERVER_USAGE" }));
+    } finally {
+      restore();
+    }
+  });
+
+  it("still refuses to start when the secrets are unset outside the build", async () => {
+    delete process.env.DOSSIER_PASSWORD;
+    delete process.env.DOSSIER_SECRET;
+    delete process.env.DATABASE_URL;
+    delete process.env.NEXT_PHASE;
+    try {
+      const loaded = await loadFresh();
+      const { EnvError: FreshEnvError, env } = loaded;
+      expect(() => env.DATABASE_URL).toThrow(FreshEnvError);
+    } finally {
+      restore();
+    }
+  });
+});
 
 describe("parseEnv", () => {
   it("accepts the required variables and fills in defaults", () => {

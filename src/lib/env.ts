@@ -2,6 +2,7 @@ import "server-only";
 
 import path from "node:path";
 
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { z } from "zod";
 
 import { isPasswordHash } from "@/lib/auth/password-hash";
@@ -215,9 +216,34 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
 
 let cached: Env | undefined;
 
+/**
+ * Next.js does not log an error with this digest: it marks the page dynamic.
+ * `next build` renders pages to decide that, and those renders have no secrets.
+ */
+const DYNAMIC_SERVER_USAGE = "DYNAMIC_SERVER_USAGE";
+
+function dynamicDuringBuild(): Error {
+  const error = new Error(
+    "Dynamic server usage: Dossier reads its environment when a request arrives, not while pages are prerendered.",
+  );
+  (error as { digest?: string }).digest = DYNAMIC_SERVER_USAGE;
+  return error;
+}
+
 function load(): Env {
-  cached ??= parseEnv(process.env);
-  return cached;
+  if (cached) return cached;
+  try {
+    cached = parseEnv(process.env);
+    return cached;
+  } catch (error) {
+    // register() does not run during `next build`, so the secrets are absent
+    // on purpose. An EnvError here is logged as a crash even though the build
+    // is meant to succeed without them.
+    if (error instanceof EnvError && process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD) {
+      throw dynamicDuringBuild();
+    }
+    throw error;
+  }
 }
 
 /**
