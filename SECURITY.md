@@ -38,11 +38,11 @@ So the worst a hostile posting or mail can do is get odd wording into its own dr
 
 ## Dependencies
 
-Dependabot proposes updates once a week, for the npm packages, GitHub Actions and Docker images. Advisories that `yarn npm audit --all --recursive` still reports, checked on 28 September 2026:
+Dependabot proposes updates once a week, for the npm packages, GitHub Actions and Docker images. Advisories that `yarn npm audit --all --recursive` still reports, checked on 2 November 2026:
 
 | Package | Advisory | Why it's accepted |
 |---|---|---|
-| `deepmerge-ts` 7.1.5, from `@prisma/config` | Stack exhaustion on recursive objects ([GHSA-ggr8-5vv4-36mx](https://github.com/advisories/GHSA-ggr8-5vv4-36mx)) | Only merges Prisma's own config when its CLI starts; no user input reaches it. The fix is in 8.x, which Prisma doesn't support yet. |
-| `eslint` 9 | Version no longer supported | Development only. Waits for `eslint-config-next` to support ESLint 10. |
+| `eslint` 9.39.5 | This version is no longer supported | Development only. `eslint-config-next` 16.4.3 accepts ESLint 9 (`>=9`). Moving to ESLint 10 is a new major and is left for a release of its own. |
+| `minimatch` 3.1.5 and 10.2.6 | Glob denial of service ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)) | Development only, from ESLint and typescript-eslint. The fix is minimatch 11, which those packages don't allow yet. |
 
-`mysql2`, which Prisma's CLI ships but Dossier never loads (it uses PostgreSQL), is pinned to a patched release in `package.json` `resolutions`. Remove the pin once Prisma updates it.
+`package.json` `resolutions` forces patched releases the parents already allow: `fast-uri` 3.1.9 (Prisma's CLI, through ajv; [GHSA-w74x-v6f9-j3xg](https://github.com/advisories/GHSA-w74x-v6f9-j3xg) and the three related advisories), `source-map-js` 1.2.2 (the CSS build; [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)) and `undici` 8.12.3 (node-gyp's copy; the 8.12.2 advisories). `@prisma/config` depends on `deepmerge-ts` 8.0.2, so the 7.1.5 advisory no longer applies. `mysql2`, which Prisma's CLI ships but Dossier never loads (it uses PostgreSQL), stays pinned to a patched release there too. Remove a pin once the parent updates it.
