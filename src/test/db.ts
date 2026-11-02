@@ -1,6 +1,5 @@
-import { PrismaPg } from "@prisma/adapter-pg";
-
 import { PrismaClient } from "@/generated/prisma/client";
+import { prismaPg } from "@/lib/pg-pool";
 
 /**
  * The database for `*.db.test.ts` files: TEST_DATABASE_URL, or DATABASE_URL
@@ -22,7 +21,7 @@ export function testDatabaseUrl(): string {
 }
 
 export function createTestClient(): PrismaClient {
-  return new PrismaClient({ adapter: new PrismaPg({ connectionString: testDatabaseUrl() }) });
+  return new PrismaClient({ adapter: prismaPg(testDatabaseUrl()) });
 }
 
 /** Empties every table, so each test starts from a blank database. */

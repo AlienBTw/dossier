@@ -5,6 +5,7 @@ import { crc32, deflateSync } from "node:zlib";
 import type { Page } from "@playwright/test";
 import { Pool } from "pg";
 
+import { SerialPgClient } from "../src/lib/pg-pool";
 import { runYarn } from "../src/test/run-yarn";
 
 // What the end-to-end tests (E11-2) run against: a production build on its
@@ -70,7 +71,7 @@ let pool: Pool | undefined;
 
 /** Runs SQL against the test database, for setting up and checking data. */
 export async function sql<Row extends object = Record<string, unknown>>(text: string, values: unknown[] = []): Promise<Row[]> {
-  pool ??= new Pool({ connectionString: e2eDatabaseUrl(), max: 2 });
+  pool ??= new Pool({ connectionString: e2eDatabaseUrl(), max: 2, Client: SerialPgClient });
   return (await pool.query<Row>(text, values)).rows;
 }
 

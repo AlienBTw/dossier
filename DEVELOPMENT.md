@@ -237,7 +237,7 @@ docker/bin/yarn typecheck     # generates Next.js route types, then runs tsc
 Put tests next to the code they cover. `*.test.ts` files run in Node (server code, pure logic);
 `*.test.tsx` files run in jsdom with [Testing Library](https://testing-library.com) and its `jest-dom` matchers (components and hooks).
 `*.db.test.ts` files run against a real Postgres database: `dossier_test` on the same server (or `TEST_DATABASE_URL`), which is created and migrated at the start of each run, and which each test empties with `resetDatabase()` from `src/test/db.ts`.
-They refuse to run against a database whose name doesn't end in `_test`, so your development data is never touched.
+They refuse to run against a database whose name doesn't end in `_test`, so your development data is never touched. Prisma's driver sends a second query on a transaction connection before the first has finished. pg 8 warns about that queue and pg 9 removes it, so the app's client (`src/lib/pg-pool.ts`) waits and sends one query at a time.
 
 GitHub Actions (`.github/workflows/ci.yml`) runs lint, type-check and tests with coverage, with a Postgres service for the database tests, on every pull request and push to `main`, and shows the coverage in the job summary. A newer push to the same branch or pull request cancels the run it replaces. On `main`, a pull request's merge commit isn't checked a second time when it holds exactly the code its pull request's run checked (the branch was up to date with `main`); every other push to `main` is. The coverage thresholds in `vitest.config.mts` ratchet: they sit a few points below the coverage when they were set, and CI fails if coverage drops below them. Raise them when you add tests.
 
