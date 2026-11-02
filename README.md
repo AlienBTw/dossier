@@ -103,6 +103,32 @@ The first start downloads the image (about 1.7 GB) and sets up the database. Ope
 
 `docker compose stop` stops it and `docker compose start` starts it again, with your data kept. It's only reachable from your own computer. The [installation guide's Docker Compose page](https://github.com/AienTech/dossier/wiki/Run-locally-with-Docker-Compose) has more: another port, your time zone, upgrades and removing it.
 
+## Build from a checkout
+
+The Docker steps above run the published image. To build and run this repository:
+
+1. Install Node.js 24. Yarn is the version in `package.json` (`corepack yarn`). Dependency install scripts are on, so Prisma's engine is built during install.
+2. Start PostgreSQL 18. From this folder, `docker compose up -d db` starts only the database in `compose.yml` (user, password and database `postgres` / `postgres` / `dossier` on port 5432, unless `.env` says otherwise).
+3. Copy `.env.example` to `.env`. Three variables are required, and the placeholders in the example are not real secrets:
+   - `DOSSIER_PASSWORD`: an argon2id hash, from `corepack yarn hash-password` (or `docker run --rm -it ghcr.io/aientech/dossier hash-password`). Never put the password itself here.
+   - `DOSSIER_SECRET`: at least 32 random characters, for example `openssl rand -base64 32`.
+   - `DATABASE_URL`: a PostgreSQL connection string. The example points at the Compose database above.
+4. Install, generate the client and migrate:
+
+```bash
+corepack yarn install
+corepack yarn prisma generate
+corepack yarn prisma migrate deploy
+corepack yarn prisma db seed
+```
+
+5. PDFs need Playwright's headless Chromium. The Docker image includes it. A checkout does not, until `node node_modules/playwright-core/cli.js install --only-shell chromium`. Without it, a download says so instead of returning a file.
+6. `corepack yarn dev`, then open [http://localhost:3000](http://localhost:3000).
+
+`corepack yarn test` runs the suite. Database tests use `DATABASE_URL` with `_test` added to the database name (or `TEST_DATABASE_URL`) and refuse any other name. `corepack yarn build` needs no secrets. The production package is the image: `docker build -t dossier:local .` (see [DEVELOPMENT.md](DEVELOPMENT.md)).
+
+Optional services (an AI provider, JSearch, Adzuna, FreeHire, the Bundesagentur source, TypeSafe Jev, Google OAuth) stay off until the matching variables in `.env.example` are set, or until you enter them in Settings.
+
 ## Self-hosting
 
 To put Dossier on a server, on your own domain with HTTPS, follow the [installation guide](https://github.com/AienTech/dossier/wiki#self-host-on-a-server): a plain Ubuntu server with Docker Compose and Caddy (or Node.js, without Docker), CapRover, Coolify or Dokploy. Give the server at least 2 vCPUs and 2 GB of memory (see [Performance and sizing](#performance-and-sizing)).
