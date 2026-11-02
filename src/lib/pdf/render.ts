@@ -2,6 +2,7 @@ import "server-only";
 
 import { chromium, type Browser } from "playwright-core";
 
+import { explainBrowserLaunch } from "./missing-browser";
 import { PRINT_TOKEN_HEADER, signPrintToken } from "./print-token";
 
 // PDFs are printed by headless Chromium from the app's own print pages, so
@@ -49,6 +50,9 @@ function browser(): Promise<Browser> {
           if (pool.browser === launching) pool.browser = null;
         });
         return launched;
+      })
+      .catch((error: unknown) => {
+        throw explainBrowserLaunch(error);
       });
     launching.catch(() => {
       if (pool.browser === launching) pool.browser = null;

@@ -10,8 +10,14 @@ const fake = vi.hoisted(() => {
     releases: [] as (() => void)[],
     routes: [] as string[],
     disconnect: undefined as Handler | undefined,
+    launchError: undefined as string | undefined,
   };
   const launch = async () => {
+    if (state.launchError) {
+      const message = state.launchError;
+      state.launchError = undefined;
+      throw new Error(message);
+    }
     state.launches += 1;
     return {
       on: (event: string, handler: Handler) => {
@@ -84,6 +90,13 @@ describe("renderPdf", () => {
     await Promise.all(renders);
     expect(fake.state.maxPrinting).toBe(MAX_CONCURRENT_RENDERS);
     expect(fake.state.launches).toBe(launches);
+  });
+
+  it("says how to install Chromium when Playwright has no browser", async () => {
+    fake.state.disconnect?.();
+    fake.state.launchError = "browserType.launch: Executable doesn't exist at C:\\Users\\someone\\chrome-headless-shell.exe";
+    await expect(renderPdf("/print/base")).rejects.toThrow(/install --only-shell chromium/);
+    expect(fake.state.launchError).toBeUndefined();
   });
 
   it("starts a new browser after the old one crashed", async () => {

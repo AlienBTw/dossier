@@ -2,7 +2,9 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { DocumentKind } from "@/generated/prisma/enums";
 import { resolveFileName } from "@/lib/file-name";
+import { logServerWarning } from "@/lib/log";
 import { holdPdf, pdfDownload } from "@/lib/pdf/downloads";
+import { PdfBrowserMissingError } from "@/lib/pdf/missing-browser";
 import { renderPdf } from "@/lib/pdf/render";
 import { prisma } from "@/lib/prisma";
 import { loadProfileName } from "@/lib/profile-data";
@@ -17,6 +19,13 @@ const APPLICATION_ID = /^[a-z0-9]{1,64}$/i;
 
 const notFound = (error: string) => NextResponse.json({ error }, { status: 404 });
 
+/** The install command, instead of a path on this server or a generic failure. */
+function missingBrowser(error: unknown): Response | null {
+  if (!(error instanceof PdfBrowserMissingError)) return null;
+  logServerWarning("pdf", "Playwright's Chromium isn't installed, so a PDF wasn't printed.");
+  return NextResponse.json({ error: error.message }, { status: 500 });
+}
+
 /**
  * Downloads a document as a PDF (RES-5, APP-12): `?doc=base` for the base
  * resume, `?doc=resume&application={id}` or `?doc=letter&application={id}`
@@ -24,8 +33,14 @@ const notFound = (error: string) => NextResponse.json({ error }, { status: 404 }
  * with Settings → PDF file name (SET-8).
  */
 export const GET = route(async (request) => {
-  const rendered = await renderRequested(request);
-  return rendered instanceof Response ? rendered : pdfDownload(rendered.pdf, rendered.fileName);
+  try {
+    const rendered = await renderRequested(request);
+    return rendered instanceof Response ? rendered : pdfDownload(rendered.pdf, rendered.fileName);
+  } catch (error) {
+    const response = missingBrowser(error);
+    if (response) return response;
+    throw error;
+  }
 });
 
 /**
@@ -34,9 +49,15 @@ export const GET = route(async (request) => {
  * this, so the browser saves the file from a link of its own.
  */
 export const POST = route(async (request) => {
-  const rendered = await renderRequested(request);
-  if (rendered instanceof Response) return rendered;
-  return NextResponse.json({ url: `/api/pdf/${holdPdf(rendered.pdf, rendered.fileName)}` });
+  try {
+    const rendered = await renderRequested(request);
+    if (rendered instanceof Response) return rendered;
+    return NextResponse.json({ url: `/api/pdf/${holdPdf(rendered.pdf, rendered.fileName)}` });
+  } catch (error) {
+    const response = missingBrowser(error);
+    if (response) return response;
+    throw error;
+  }
 });
 
 /** The PDF and file name of the document the query asks for, or a 404 response. */

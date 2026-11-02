@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getSession } from "@/lib/auth/session";
+import { PdfBrowserMissingError } from "@/lib/pdf/missing-browser";
 import { renderPdf } from "@/lib/pdf/render";
 import { prisma } from "@/lib/prisma";
 import { loadProfileName } from "@/lib/profile-data";
@@ -65,6 +66,16 @@ describe("GET /api/pdf", () => {
   it("needs a session", async () => {
     vi.mocked(getSession).mockResolvedValue(null);
     expect((await get("?doc=base")).status).toBe(401);
+  });
+
+  it("names the missing browser instead of a path on the server", async () => {
+    vi.mocked(renderPdf).mockRejectedValue(new PdfBrowserMissingError());
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const response = await get("?doc=base");
+    expect(response.status).toBe(500);
+    const body = (await response.json()) as { error: string };
+    expect(body.error).toContain("node node_modules/playwright-core/cli.js install --only-shell chromium");
+    expect(body.error).not.toMatch(/[A-Z]:\\/);
   });
 
   it("turns a failed render into a friendly 500", async () => {
