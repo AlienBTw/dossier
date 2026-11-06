@@ -50,6 +50,7 @@ export function demoProfile(): ProfileData {
       city: basics.city,
       country: basics.country,
       linkedin: basics.linkedin,
+      github: (basics as { github?: string }).github ?? "",
       summary: basics.summary,
       showAge,
     },

@@ -72,6 +72,7 @@ export const BASICS_FIELDS = [
   "city",
   "country",
   "linkedin",
+  "github",
   "summary",
 ] as const;
 export type BasicsField = (typeof BASICS_FIELDS)[number];
@@ -79,7 +80,7 @@ export type BasicsField = (typeof BASICS_FIELDS)[number];
 /** The Basics fields a profile needs (#216); the rest are optional, and the section count is "filled/6". */
 export const REQUIRED_BASICS = ["name", "headline", "email", "city", "country", "summary"] as const satisfies readonly BasicsField[];
 
-/** Whether a Basics field is optional: phone, date of birth, address, website and LinkedIn. */
+/** Whether a Basics field is optional: phone, date of birth, address, website, LinkedIn and GitHub. */
 export const isOptionalBasic = (field: BasicsField) => !(REQUIRED_BASICS as readonly BasicsField[]).includes(field);
 
 // The profile as the editor works with it: plain values (dates of birth as

@@ -65,7 +65,7 @@ afterAll(() => prisma().$disconnect());
 
 const basics = {
   name: "Jane Doe", headline: "", email: "", phone: "", dob: "1992-04-18", website: "",
-  address: "", city: "", country: "", linkedin: "", summary: "", showAge: true,
+  address: "", city: "", country: "", linkedin: "", github: "", summary: "", showAge: true,
 };
 
 describe("profile actions", () => {
