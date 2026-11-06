@@ -35,6 +35,7 @@ export const saveBasics = action(
     city: text(120),
     country: text(120),
     linkedin: text(500),
+    github: text(500),
     summary: text(5000),
     showAge: z.boolean(),
   }),

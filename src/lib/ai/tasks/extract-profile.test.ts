@@ -49,6 +49,7 @@ const answer = {
     city: "Utrecht",
     country: "Netherlands",
     linkedin: "",
+    github: null,
     summary: null,
   },
   skills: ["Figma", "Design systems", "User research", "figma"],

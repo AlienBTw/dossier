@@ -34,6 +34,7 @@ const FIELDS: FieldSpec[] = [
   { field: "city", label: "City", placeholder: "Springfield", autoComplete: "address-level2" },
   { field: "country", label: "Country", placeholder: "United States", autoComplete: "country-name" },
   { field: "linkedin", label: "LinkedIn", wide: true, placeholder: "linkedin.com/in/johndoe" },
+  { field: "github", label: "GitHub", wide: true, placeholder: "https://github.com/username" },
 ];
 
 // Gentle format hints: they never block saving.
@@ -44,7 +45,7 @@ const looksLikeWebAddress = (value: string) =>
 function formatHint(field: BasicsField, value: string): string | undefined {
   if (!value.trim()) return undefined;
   if (field === "email" && !looksLikeEmail(value)) return "That doesn't look like an email address yet.";
-  if ((field === "website" || field === "linkedin") && !looksLikeWebAddress(value)) {
+  if ((field === "website" || field === "linkedin" || field === "github") && !looksLikeWebAddress(value)) {
     return "That doesn't look like a web address yet, e.g. johndoe.example.com.";
   }
   return undefined;

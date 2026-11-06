@@ -311,6 +311,7 @@ export function sampleProfile(sample: Sample): ProfileData {
       city: sample.city,
       country: sample.country,
       linkedin: "",
+      github: "",
       summary: sample.summary,
       showAge: false,
     },
