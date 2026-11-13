@@ -29,8 +29,8 @@ const answerSchema = z.object({
   summary: z.string(),
   roles: z.array(z.object({ id: z.string(), bullets: z.array(z.string()) })),
   projects: z.array(z.object({ id: z.string(), bullets: z.array(z.string()) })),
-  /** The profile's skills, most relevant first; leave out ones that don't help. */
-  skills: z.array(z.string()),
+  /** The candidate's 8 to 15 skills most relevant to this job; strictly omit unrelated skills. */
+  skills: z.array(z.string()).max(18),
   education: z.array(z.object({ id: z.string(), notes: z.string() })),
 });
 
@@ -39,7 +39,7 @@ const INSTRUCTIONS = `You tailor a candidate's resume to one job, as JSON.
 - summary: 2–3 sentences in the first person without "I" at the start of every sentence, about the candidate as this job would see them.
 - roles: every role from the profile, by id, with 2–5 bullets each, volunteering too. Lead with what this job cares about, keep each bullet to one line, and start with a verb.
 - projects: every project from the profile, by id, with 1–3 bullets each, written like the roles' bullets: what was built and what it shows that this job cares about.
-- skills: the candidate's own skills, most relevant to this job first. Copy their names exactly; you may leave out ones that don't help.
+- skills: select only the 8 to 15 skills from the candidate's profile that are directly relevant to this job, ranked most relevant first. Strictly omit all unrelated, generic, or off-topic skills so the resume stays sharp, focused, and uncluttered. Copy their names exactly.
 - education: every entry by id, with its notes shortened or left empty.
 - The profile's certifications, publications and otherSections go on the resume word for word, so don't answer with them; the summary may mention them.`;
 
@@ -105,9 +105,10 @@ export function resumeUnits(profile: ProfileData, answer: z.infer<typeof answerS
   const roles = new Map(answer.roles.map((role) => [role.id, role.bullets]));
   const projects = new Map(answer.projects.map((project) => [project.id, project.bullets]));
   const notes = new Map(answer.education.map((entry) => [entry.id, entry.notes]));
-  const kept = [...new Set(answer.skills.flatMap((name) => profile.skills.find((skill) => sameName(skill.name, name)) ?? []))];
+  const MAX_TAILORED_SKILLS = 16;
+  const kept = [...new Set(answer.skills.flatMap((name) => profile.skills.find((skill) => sameName(skill.name, name)) ?? []))].slice(0, MAX_TAILORED_SKILLS);
   // In the profile's order when the user set one (public issue 62), else as the model ranked them.
-  const skills = keepSkillOrder ? inEditorOrder(profile.skills).filter((skill) => kept.includes(skill)) : kept;
+  const skills = keepSkillOrder ? inEditorOrder(profile.skills).filter((skill) => kept.includes(skill)).slice(0, MAX_TAILORED_SKILLS) : kept;
   const units: Unit[] = [
     { id: "summary", label: "Summary", text: answer.summary.trim() },
     ...profile.experience.map((entry) => {
