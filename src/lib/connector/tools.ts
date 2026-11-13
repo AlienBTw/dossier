@@ -3,8 +3,12 @@ import "server-only";
 import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
-import { ApplicationStatus, DocumentKind } from "@/generated/prisma/enums";
+import { AgentCandidateStatus, ApplicationStatus, DocumentKind } from "@/generated/prisma/enums";
 import { approveCandidate } from "@/lib/agent/draft";
+import { AGENT_JOB_KEY, agentScanJob } from "@/lib/agent/jobs";
+import { agentSetupProblem } from "@/lib/agent/run";
+import { runLimitProblem } from "@/lib/agent/runs";
+import { listAgentSearches } from "@/lib/agent/searches";
 import { isAiUsable } from "@/lib/ai/config";
 import { profileForPrompt } from "@/lib/ai/tasks/prompt-parts";
 import { scoreFrom } from "@/lib/ai/tasks/score-posting";
@@ -26,7 +30,7 @@ import {
   type SearchQuery,
   type ShownPosting,
 } from "@/lib/job-search/search";
-import { getJob, startJob } from "@/lib/jobs/runner";
+import { findUnfinishedJobs, getJob, startJob } from "@/lib/jobs/runner";
 import { withoutPrivateParts } from "@/lib/letter-frame";
 import { fetchPosting } from "@/lib/posting-fetch";
 import { saveScore } from "@/lib/posting-scores";
@@ -38,6 +42,7 @@ import { withoutSectionsOff } from "@/lib/resume-sections";
 import { loadSettings } from "@/lib/settings-data";
 import { statusInfo } from "@/lib/status";
 import { applyStatusChange } from "@/lib/status-changes";
+import { lastKnownTimeZone } from "@/lib/time-zone";
 import { appVersion } from "@/lib/version";
 
 import { connectorDraftJob } from "./draft";
@@ -505,6 +510,120 @@ export function createDossierServer(origin: string): McpServer {
       const result = await applyStatusChange(prisma, id, status);
       if (result.outcome === "not-found") return failure("That application no longer exists.");
       return text({ id, status: statusInfo(status).label, changed: result.outcome !== "unchanged" });
+    },
+  );
+
+  server.registerTool(
+    "run_job_agent",
+    {
+      title: "Run the job agent",
+      description:
+        "Starts one run of Dossier's Job agent (Agent screen): runs enabled recurring searches, scores new postings against the profile, and keeps the best as candidates. " +
+        "Nothing is sent and no applications are created unless auto-draft is on. Takes a minute or more: follow with check_job_agent, then list_agent_candidates.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: false, openWorldHint: true },
+    },
+    async () => {
+      const settings = await loadSettings();
+      if (!settings.agentEnabled) return failure("The job agent is off. Turn it on in Settings → Job agent first.");
+      const setup = await agentSetupProblem();
+      if (setup) return failure(setup);
+      const [unfinished] = await findUnfinishedJobs(AGENT_JOB_KEY);
+      if (unfinished) {
+        return text({ run_id: unfinished.id, status: "working", reused: true, next: "Call check_job_agent with this run_id." });
+      }
+      const searches = await listAgentSearches();
+      const requests = searches.filter((s) => s.enabled).length;
+      const limit = runLimitProblem(settings.agentRuns, new Date(), { manual: true, requests, timeZone: await lastKnownTimeZone() });
+      if (limit) return failure(limit);
+      const runId = await startJob(agentScanJob, { manual: true }, { key: AGENT_JOB_KEY });
+      return text({
+        run_id: runId,
+        status: "started",
+        searches: searches.filter((s) => s.enabled).map((s) => s.name),
+        next: "Call check_job_agent with this run_id in a minute or so, then list_agent_candidates.",
+        link: linkTo("/agent"),
+      });
+    },
+  );
+
+  server.registerTool(
+    "check_job_agent",
+    {
+      title: "Check a job agent run",
+      description: "How a run from run_job_agent is coming along; once done, the counts and message from that scan.",
+      inputSchema: z.object({ run_id: z.string().min(1).max(100) }),
+      annotations: { readOnlyHint: true },
+    },
+    async ({ run_id }) => {
+      const job = await getJob(run_id);
+      if (!job || job.type !== agentScanJob.type) return failure("There's no such job agent run.");
+      if (job.status === "FAILED") return failure(job.error ?? "The job agent run failed.");
+      if (job.status !== "DONE") return text({ run_id, status: "working", step: job.step ?? "Starting", next: "Check again in a little while." });
+      const result = agentScanJob.result.safeParse(job.result);
+      if (!result.success) return failure("The run finished, but its result couldn't be read.");
+      return text({ run_id, status: "done", ...result.data, link: linkTo("/agent"), next: "Call list_agent_candidates to read the scored postings." });
+    },
+  );
+
+  server.registerTool(
+    "list_agent_candidates",
+    {
+      title: "List job agent candidates",
+      description:
+        "Postings the Job agent found and scored, newest first. Optionally only one status (SCORED, DRAFTED, DISMISSED). Search-only: nothing is sent.",
+      inputSchema: z.object({
+        status: z.enum(AgentCandidateStatus).optional(),
+        limit: z.number().int().min(1).max(50).optional(),
+        min_score: z.number().int().min(0).max(100).optional(),
+      }),
+      annotations: { readOnlyHint: true },
+    },
+    async ({ status, limit, min_score }) => {
+      const rows = await prisma.agentCandidate.findMany({
+        where: {
+          ...(status ? { status } : { status: { not: AgentCandidateStatus.DISMISSED } }),
+          ...(min_score != null ? { score: { gte: min_score } } : {}),
+        },
+        orderBy: [{ score: "desc" }, { createdAt: "desc" }],
+        take: limit ?? 20,
+        select: {
+          id: true,
+          title: true,
+          company: true,
+          place: true,
+          remote: true,
+          salary: true,
+          postedAt: true,
+          url: true,
+          via: true,
+          score: true,
+          reasons: true,
+          redFlags: true,
+          status: true,
+          source: true,
+        },
+      });
+      return text({
+        count: rows.length,
+        candidates: rows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          company: row.company,
+          place: row.place,
+          remote: row.remote,
+          salary: row.salary || undefined,
+          posted: row.postedAt?.toISOString().slice(0, 10),
+          url: row.url || undefined,
+          via: row.via || undefined,
+          score: row.score,
+          reasons: row.reasons ?? undefined,
+          red_flags: row.redFlags ?? undefined,
+          status: row.status,
+          source: row.source,
+        })),
+        link: linkTo("/agent"),
+      });
     },
   );
 
