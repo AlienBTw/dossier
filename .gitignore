@@ -23,6 +23,28 @@
 # misc
 .DS_Store
 *.pem
+Thumbs.db
+.vscode/
+.idea/
+
+# credentials & secrets
+password*.txt
+*password*.txt
+*.secret
+*.key
+*.token
+credentials.json
+
+# local agent & AI rules
+AGENTS.md
+
+# local scratch & automation scripts
+scratch*
+scripts/scratch_*
+scripts/*.mts
+scripts/*.cjs
+scripts/*.sh
+!scripts/hash-password.ts
 
 # The website, built by site/build.sh
 /_site/
