@@ -383,6 +383,17 @@ describe("resumeUnits' skills (#280)", () => {
     const units = resumeUnits(grouped, { summary: "", roles: [], projects: [], education: [], skills: ["figma", "User research", "Prototyping", "Kubernetes", "Design systems"] });
     expect(units.find((unit) => unit.id === "skills")?.text).toBe("Tools: Figma · Prototyping\nUser research · Design systems");
   });
+
+  it("caps skills at 16 without failing when the model returns more than 18", async () => {
+    const manySkills = Array.from({ length: 20 }, (_, i) => ({ id: `s${i}`, name: `Skill ${i}`, group: "", order: i }));
+    const bigProfile = { ...demoProfile(), skills: manySkills };
+    const { data } = await tailorResume(
+      model({ summary: "Summary", roles: [], projects: [], education: [], skills: manySkills.map((s) => s.name) }),
+      { profile: bigProfile, extracted: { title: "Eng", company: "Acme", place: "", country: "", remote: false, email: null, requirements: [], language: "English" }, match: null, facts: [], posting: "" },
+      { creativity: "BALANCED", strict: false, language: "English" },
+    );
+    expect(skillNamesIn(data.find((unit) => unit.id === "skills")!.text)).toHaveLength(16);
+  });
 });
 
 describe("writeCoverLetter", () => {

@@ -29,8 +29,8 @@ const answerSchema = z.object({
   summary: z.string(),
   roles: z.array(z.object({ id: z.string(), bullets: z.array(z.string()) })),
   projects: z.array(z.object({ id: z.string(), bullets: z.array(z.string()) })),
-  /** The candidate's 8 to 15 skills most relevant to this job; strictly omit unrelated skills. */
-  skills: z.array(z.string()).max(18),
+  /** The candidate's skills most relevant to this job; sliced to MAX_TAILORED_SKILLS below. */
+  skills: z.array(z.string()),
   education: z.array(z.object({ id: z.string(), notes: z.string() })),
 });
 
